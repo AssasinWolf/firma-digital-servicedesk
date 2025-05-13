@@ -1,0 +1,186 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Gestión de PDF</title>
+  <style>
+    body {
+      font-family: 'Roboto', Arial, sans-serif;
+      background: #f2f2f2;
+      padding: 40px;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      max-width: 400px;
+      width: 100%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      text-align: center;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    button {
+      padding: 12px 24px;
+      margin: 10px;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      transition: all 0.3s ease;
+      width: 100%;
+    }
+    .btn-download {
+      background-color: #007bff;
+      color: white;
+    }
+    .btn-delete {
+      background-color: #d32f2f;
+      color: white;
+    }
+    button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    #message {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 14px;
+    }
+    .filename {
+      margin: 20px 0;
+      font-size: 16px;
+      font-weight: bold;
+      color: #333333;
+    }
+    #loading-message {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 14px;
+      color: #ff9800;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Gestión del Documento PDF</h2>
+    <div class="filename" id="filename-display">Cargando nombre del archivo...</div>
+    <button class="btn-download" id="btn-download" onclick="descargarPDF()">Descargar PDF</button>
+    <button class="btn-delete" id="btn-delete" onclick="eliminarPDF()">Eliminar PDF</button>
+    <div id="message"></div>
+    <div id="loading-message">Eliminando archivo...</div>
+  </div>
+
+  <script>
+    const requestId = new URLSearchParams(window.location.search).get("id") || "109";
+    const filename = `Solicitud_${requestId}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    const API_BASE = "https://example.com";
+
+    async function obtenerTokenTemporal() {
+      const res = await fetch(`${API_BASE}/token/generar`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ request_id: requestId, pdf_filename: filename })
+      });
+      const data = await res.json();
+      if (data.status === "success") {
+        return data.access_token;
+      } else {
+        showMessage("Error al generar token temporal.");
+        return null;
+      }
+    }
+
+    async function checkIfFileExists() {
+      const token = await obtenerTokenTemporal();
+      if (!token) return;
+      const res = await fetch(`${API_BASE}/pdf/descargar`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ pdf_filename: filename, access_token: token })
+      });
+
+      const data = await res.json();
+      if (data.status === "success") {
+        document.getElementById('filename-display').innerText = `Nombre del archivo: ${filename}`;
+        document.getElementById('btn-download').style.display = "block";
+        document.getElementById('btn-delete').style.display = "block";
+        showMessage("");
+      } else {
+        document.getElementById('filename-display').innerText = "No hay archivo para gestionar";
+        document.getElementById('btn-download').style.display = "none";
+        document.getElementById('btn-delete').style.display = "none";
+        showMessage("No hay archivo para gestionar.");
+      }
+    }
+
+    function showMessage(msg) {
+      document.getElementById("message").innerText = msg;
+    }
+
+    async function descargarPDF() {
+      const token = await obtenerTokenTemporal();
+      if (!token) return;
+      showMessage("");
+      const res = await fetch(`${API_BASE}/pdf/descargar`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ pdf_filename: filename, access_token: token })
+      });
+
+      const data = await res.json();
+      if (data.status === "success") {
+        const link = document.createElement("a");
+        link.href = "data:application/pdf;base64," + data.pdf_base64;
+        link.download = filename;
+        link.click();
+        showMessage("PDF descargado correctamente");
+      } else {
+        showMessage("Error al descargar PDF: " + data.message);
+      }
+    }
+
+    async function eliminarPDF() {
+      if (!confirm("¿Estás seguro de que deseas eliminar este archivo PDF? Esta acción no se puede deshacer.")) return;
+      const token = await obtenerTokenTemporal();
+      if (!token) return;
+      document.getElementById("loading-message").style.display = "block";
+
+      const res = await fetch(`${API_BASE}/pdf/eliminar`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ request_id: requestId, pdf_filename: filename, access_token: token })
+      });
+
+      const data = await res.json();
+      if (data.status === "success") {
+        setTimeout(() => {
+          document.getElementById("loading-message").style.display = "none";
+          showMessage("PDF eliminado correctamente");
+
+          if (window.opener && !window.opener.closed) {
+            window.opener.location.reload();
+          }
+          window.close();
+        }, 1000);
+      } else {
+        setTimeout(() => {
+          document.getElementById("loading-message").style.display = "none";
+          showMessage("Error al eliminar PDF: " + data.message);
+        }, 1000);
+      }
+    }
+
+    checkIfFileExists();
+  </script>
+</body>
+</html>

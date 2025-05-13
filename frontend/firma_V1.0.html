@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Solicitud con Firma Digital v1.0 - ServiceDesk Plus</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+    body {
+      font-family: 'Roboto', Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f2f2f2;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      display: flex;
+      max-width: 1000px;
+      width: 100%;
+      gap: 20px;
+    }
+    .data-container {
+      flex: 1;
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .signature-container {
+      width: 400px;
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h2 {
+      color: #333333;
+      margin-bottom: 20px;
+      text-align: center;
+      font-size: 24px;
+    }
+    .data-display h3 {
+      margin-top: 0;
+      color: #333333;
+      font-size: 18px;
+      border-bottom: 2px solid #007bff;
+      padding-bottom: 5px;
+    }
+    .data-item {
+      margin-bottom: 12px;
+      font-size: 14px;
+      display: flex;
+    }
+    #json-data-container .data-label {
+      font-weight: bold;
+      color: #555;
+      width: 60px;
+      flex-shrink: 0;
+    }
+    #json-data-container .data-value {
+      margin-left: 20px;
+    }
+    #signature-pad {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      background-color: white;
+      margin-bottom: 15px;
+      cursor: crosshair;
+      touch-action: none;
+      width: 100%;
+    }
+    .button-container {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      justify-content: center;
+      margin-top: 15px;
+    }
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s ease;
+      font-size: 14px;
+    }
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    button:active {
+      transform: translateY(0);
+    }
+    .clear-btn {
+      background-color: #d32f2f;
+      color: white;
+    }
+    .save-btn {
+      background-color: #007bff;
+      color: white;
+    }
+    .error-message {
+      color: #d32f2f;
+      font-size: 13px;
+      display: none;
+      margin-top: -10px;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    hr {
+      border: 0;
+      height: 1px;
+      background: #ddd;
+      margin: 15px 0;
+    }
+    .loader {
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #007bff;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 2s linear infinite;
+      margin: 20px auto;
+      display: none;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .status-message {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      text-align: center;
+      display: none;
+    }
+    .success {
+      background-color: #dff0d8;
+      color: #3c763d;
+    }
+    .error {
+      background-color: #f2dede;
+      color: #a94442;
+    }
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+      }
+      .signature-container {
+        width: auto;
+      }
+      #signature-pad {
+        width: 100% !important;
+        height: 200px !important;
+      }
+    }
+  
+    /* Nueva disposición en dos columnas para secciones específicas */
+    .section-columns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .column-block {
+      flex: 1;
+      min-width: 280px;
+    }
+
+    #json-data-container .column-block .data-item {
+      display: flex;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+
+    #json-data-container .column-block .data-label {
+      font-weight: bold;
+      width: 80px;
+    }
+
+    #json-data-container .column-block .data-value {
+      margin-left: 4px;
+    }
+
+</style>
+</head>
+<body>
+<div class="container">
+<div class="data-container">
+<h2>Detalles de la Solicitud v1.0</h2>
+<div class="loader" id="loader"></div>
+<div class="status-message" id="status-message"></div>
+<div class="data-display" id="json-data-container"></div>
+<div id="error-container" style="color: red; display: none;"></div>
+</div>
+<div class="signature-container">
+<h2>Firma Digital</h2>
+<canvas height="200" id="signature-pad" width="400"></canvas>
+<div class="error-message" id="error-message">Por favor añade tu firma para completar la solicitud</div>
+<div class="button-container">
+<button class="clear-btn" onclick="clearSignature()">Borrar Firma</button>
+<button class="save-btn" onclick="processSignature()">Enviar Firma</button>
+</div>
+</div>
+</div>
+<script>
+    const PRODUCTION_CONFIG = {
+      API_BASE: 'https://example.com',
+      API_GET_REQUEST: 'https://example.com/api/v3/requests/',
+      API_UPDATE_REQUEST: 'https://example.com/api/v3/requests/',
+      BACKEND_ENDPOINT: 'https://example.com/firmar',
+      
+      PDF_SAVE_PATH: '/pdf/'
+    };
+
+    let canvas, ctx;
+    let drawing = false;
+    let hasSigned = false;
+    let lastX = 0;
+    let lastY = 0;
+    let jsonData = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      setupCanvas();
+      loadRequestData();
+    });
+
+    function getRequestId() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('id') || params.get('requestId') || '109';
+    }
+
+    async function loadRequestData() {
+      const loader = document.getElementById('loader');
+      const errorContainer = document.getElementById('error-container');
+      const dataContainer = document.getElementById('json-data-container');
+      loader.style.display = 'block';
+      dataContainer.style.display = 'none';
+      errorContainer.style.display = 'none';
+
+      try {
+        const requestId = getRequestId();
+        const response = await fetch(`${PRODUCTION_CONFIG.API_GET_REQUEST}${requestId}`, {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'authtoken': PRODUCTION_CONFIG.AUTH_TOKEN
+          }
+        });
+
+        if (!response.ok) throw new Error(`Error ${response.status}`);
+        jsonData = await response.json();
+        displayRequestData(jsonData);
+      } catch (error) {
+        errorContainer.innerHTML = `Error al cargar datos: ${error.message}`;
+        errorContainer.style.display = 'block';
+      } finally {
+        loader.style.display = 'none';
+        dataContainer.style.display = 'block';
+      }
+    }
+
+    function displayRequestData(data) {
+      const container = document.getElementById('json-data-container');
+      if (!data?.request) {
+        container.innerHTML = '<p>No se encontraron datos</p>';
+        return;
+      }
+
+      const request = data.request;
+      const udf = request.udf_fields || {};
+
+      container.innerHTML = `
+        <h3>Información General</h3>
+        <div class="data-item"><span class="data-label">ID:</span><span class="data-value">${request.id}</span></div>
+        <div class="data-item"><span class="data-label">Asunto:</span><span class="data-value">${request.subject || 'N/A'}</span></div>
+        <div class="data-item"><span class="data-label">Estado:</span><span class="data-value">${request.status?.name || 'N/A'}</span></div>
+        <div class="data-item"><span class="data-label">Fecha:</span><span class="data-value">${request.created_time?.display_value || 'N/A'}</span></div>
+        <hr>
+        <h3>Solicitante</h3>
+        <div class="data-item"><span class="data-label">Nombre:</span><span class="data-value">${udf.udf_sline_1505 || request.requester?.name || 'N/A'}</span></div>
+        <div class="data-item"><span class="data-label">Teléfono:</span><span class="data-value">${udf.udf_sline_1506 || request.created_by?.phone || 'N/A'}</span></div>
+        <div class="data-item"><span class="data-label">Sitio:</span><span class="data-value">${request.site?.name || 'N/A'}</span></div>
+        <hr>
+        </div><h3>Equipo Actual</h3>
+        <div class="data-item"><span class="data-label">Modelo:</span><span class="data-value">${udf.udf_sline_1514 || 'N/A'}</span></div>
+        <div class="data-item"><span class="data-label">Serial:</span><span class="data-value">${udf.udf_sline_1509 || 'N/A'}</span></div>
+        <hr>
+        <div class="section-columns"><div class="column-block"><h3>Equipo Nuevo</h3>
+        <div class="data-item"><span class="data-label">Modelo:</span><span class="data-value">${udf.udf_sline_3915 || 'N/A'}</span></div>
+        <div class="data-item"><span class="data-label">Serial:</span><span class="data-value">${udf.udf_sline_1510 || 'N/A'}</span></div>
+      `;
+    }
+
+    function setupCanvas() {
+      canvas = document.getElementById('signature-pad');
+      ctx = canvas.getContext('2d');
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      canvas.addEventListener('mousedown', startDrawing);
+      canvas.addEventListener('mousemove', draw);
+      canvas.addEventListener('mouseup', stopDrawing);
+      canvas.addEventListener('mouseout', stopDrawing);
+      canvas.addEventListener('touchstart', handleTouchStart);
+      canvas.addEventListener('touchmove', handleTouchMove);
+      canvas.addEventListener('touchend', handleTouchEnd);
+    }
+
+    function startDrawing(e) {
+      drawing = true;
+      hasSigned = true;
+      document.getElementById('error-message').style.display = 'none';
+      const pos = getPosition(e);
+      lastX = pos.x;
+      lastY = pos.y;
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      e.preventDefault();
+    }
+
+    function draw(e) {
+      if (!drawing) return;
+      const pos = getPosition(e);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+      lastX = pos.x;
+      lastY = pos.y;
+      e.preventDefault();
+    }
+
+    function stopDrawing() {
+      drawing = false;
+    }
+
+    function clearSignature() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      hasSigned = false;
+    }
+
+    function getPosition(e) {
+      const rect = canvas.getBoundingClientRect();
+      let x, y;
+      if (e.type.includes('touch')) {
+        const touch = e.touches[0] || e.changedTouches[0];
+        x = touch.clientX - rect.left;
+        y = touch.clientY - rect.top;
+      } else {
+        x = e.clientX - rect.left;
+        y = e.clientY - rect.top;
+      }
+      return {
+        x: x * (canvas.width / rect.width),
+        y: y * (canvas.height / rect.height)
+      };
+    }
+
+    function handleTouchStart(e) {
+      const touch = e.touches[0];
+      const mouseEvent = new MouseEvent('mousedown', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      });
+      startDrawing(mouseEvent);
+      e.preventDefault();
+    }
+
+    function handleTouchMove(e) {
+      const touch = e.touches[0];
+      const mouseEvent = new MouseEvent('mousemove', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      });
+      draw(mouseEvent);
+      e.preventDefault();
+    }
+
+    function handleTouchEnd(e) {
+      const mouseEvent = new MouseEvent('mouseup', {});
+      stopDrawing(mouseEvent);
+    }
+
+    async function processSignature() {
+  if (!hasSigned) {
+    document.getElementById('error-message').style.display = 'block';
+    return;
+  }
+
+  const requestId = getRequestId();
+  const signatureData = canvas.toDataURL('image/png');
+  const saveBtn = document.querySelector('.save-btn');
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Enviando...';
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF("p", "mm", "a4");
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const margin = 15;
+    let y = 10;
+    const colGap = 0;
+    const colWidth = (pageWidth - 2 * margin - colGap) / 2;
+
+    const request = jsonData.request || {};
+    const udf = request.udf_fields || {};
+
+    const drawTitle = (text) => {
+      pdf.setFontSize(12);
+      pdf.setFont(undefined, "bold");
+      const textWidth = pdf.getTextWidth(text);
+      pdf.text(text, (pageWidth - textWidth) / 2, y);
+      y += 10;
+    };
+
+    
+    const drawTwoColumnBlock = (leftTitle, leftItems, rightTitle, rightItems) => {
+      pdf.setFontSize(12);
+      pdf.setTextColor(0, 113, 197);
+      pdf.setFont(undefined, "bold");
+      pdf.text(leftTitle, margin, y);
+      pdf.text(rightTitle, margin + colWidth + colGap, y);
+      y += 6;
+
+      pdf.setFontSize(9);
+      pdf.setTextColor(0);
+
+      // Calcular el ancho máximo de los labels
+      const getMaxLabelWidth = (items) => {
+        return Math.max(...items.map(item => pdf.getTextWidth(item.label || "")));
+      };
+
+      const leftLabelWidth = getMaxLabelWidth(leftItems);
+      const rightLabelWidth = getMaxLabelWidth(rightItems);
+
+      const leftValueX = margin + leftLabelWidth + 5;
+      const leftColonX = margin + leftLabelWidth + 2;
+
+      const rightLabelStart = margin + colWidth + colGap;
+      const rightColonX = rightLabelStart + rightLabelWidth + 2;
+      const rightValueX = rightLabelStart + rightLabelWidth + 5;
+
+      const maxLines = Math.max(leftItems.length, rightItems.length);
+      for (let i = 0; i < maxLines; i++) {
+        pdf.setFont(undefined, "normal");
+
+        if (leftItems[i]) {
+          const label = leftItems[i].label || "";
+          const value = (leftItems[i].value || "").toLowerCase();
+          pdf.text(label, margin, y);
+          pdf.text(":", leftColonX, y);
+          pdf.setFont(undefined, "bold");
+          pdf.text(value, leftValueX, y);
+        }
+
+        if (rightItems[i]) {
+          const label = rightItems[i].label || "";
+          const value = (rightItems[i].value || "").toLowerCase();
+          pdf.setFont(undefined, "normal");
+          pdf.text(label, rightLabelStart, y);
+          pdf.text(":", rightColonX, y);
+          pdf.setFont(undefined, "bold");
+          pdf.text(value, rightValueX, y);
+        }
+
+        y += 5;
+      }
+      y += 4;
+    };
+
+
+    
+    const drawSingleBlock = (title, lines) => {
+      pdf.setFontSize(12);
+      pdf.setTextColor(0, 113, 197);
+      pdf.setFont(undefined, "bold");
+      pdf.text(title, margin, y);
+      y += 6;
+
+      pdf.setFontSize(9);
+      pdf.setTextColor(0);
+      pdf.setFont(undefined, "normal");
+
+      // Separar cada línea en label y valor
+      const parsedLines = lines.map(line => {
+        const parts = line.split(":");
+        return {
+          label: parts[0].trim(),
+          value: parts[1] ? parts[1].trim() : ""
+        };
+      });
+
+      // Calcular el ancho máximo de las etiquetas
+      const maxLabelWidth = Math.max(...parsedLines.map(item => pdf.getTextWidth(item.label)));
+      const colonX = margin + maxLabelWidth + 2;
+      const valueX = margin + maxLabelWidth + 5;
+
+      parsedLines.forEach(item => {
+        pdf.setFont(undefined, "normal");
+        pdf.text(item.label, margin, y);
+        pdf.text(":", colonX, y);
+        pdf.setFont(undefined, "bold");
+        pdf.text(item.value, valueX, y);
+        y += 5;
+      });
+      y += 6;
+    };
+
+
+    
+    const drawSignatures = () => {
+      const sigY = y + 10;
+      const sigHeight = 20;
+      const sigWidth = 60;
+      const lineY = sigY + sigHeight + 2;
+      const textY = lineY + 4;
+      const nameY = textY + 4;
+      const gapX = 20;  // menor separación horizontal
+      const centerX = pageWidth / 2;
+      const leftX = centerX - sigWidth - gapX;
+      const rightX = centerX + gapX;
+
+      pdf.addImage(signatureData, "PNG", rightX, sigY, sigWidth, sigHeight);
+
+      pdf.setDrawColor(180);
+      pdf.setLineWidth(0.3);
+      pdf.line(leftX, lineY, leftX + sigWidth, lineY);
+      pdf.line(rightX, lineY, rightX + sigWidth, lineY);
+
+      pdf.setFontSize(9);
+      pdf.setFont(undefined, "bold");
+      pdf.text("FIRMA TÉCNICO", leftX + sigWidth / 2, textY, { align: "center" });
+      pdf.text("FIRMA USUARIO", rightX + sigWidth / 2, textY, { align: "center" });
+
+      pdf.setFont(undefined, "normal");
+      pdf.text("Alejandro Ignacio Muñoz", leftX + sigWidth / 2, nameY, { align: "center" });
+      pdf.text(udf.udf_sline_1505 || "", rightX + sigWidth / 2, nameY, { align: "center" });
+
+      y = nameY + 10;
+    };
+    
+
+    // ENCABEZADO PDF CORRECTO
+    pdf.setFontSize(12);
+    pdf.setFont(undefined, "bold");
+    const title = "FORMULARIO DE INSTALACION DE EQUIPO";
+    const titleWidth = pdf.getTextWidth(title);
+    pdf.text(title, (pageWidth - titleWidth) / 2, y);
+    y += 6;
+
+    pdf.setFontSize(9);
+    pdf.setFont(undefined, "normal");
+    const ticketCliente = udf.udf_sline_1501 || request.id;
+    pdf.text("Ticket Cliente: " + ticketCliente, margin, y);
+    const fechaActual = new Date();
+const fechaFormateada = `${String(fechaActual.getDate()).padStart(2, "0")}/${String(fechaActual.getMonth() + 1).padStart(2, "0")}/${fechaActual.getFullYear()}`;
+pdf.text("Fecha de Instalación: " + fechaFormateada, pageWidth - margin - 60, y);
+    y += 10;
+
+    drawTwoColumnBlock(
+      "DATOS DEL USUARIO Y DEL LOCAL",
+      [
+        { label: "Dominio", value: udf.udf_sline_1508 },
+        { label: "Nombre Usuario", value: udf.udf_sline_1505 },
+        { label: "Rut", value: udf.udf_sline_1506 },
+        { label: "Teléfono", value: udf.udf_sline_3923 },
+        { label: "Celular", value: udf.udf_sline_3924 },
+        { label: "Dirección", value: udf.udf_sline_3920 },
+        { label: "Sucursal", value: udf.udf_sline_3922 }
+      ],
+      "ESPECIFICACIONES NUEVO EQUIPO",
+      [
+        { label: "Modelo", value: udf.udf_sline_3915 },
+        { label: "Serial", value: udf.udf_sline_1510 },
+        { label: "Dirección IP", value: udf.udf_sline_3931 },
+        { label: "Nombre Equipo", value: udf.udf_sline_3933 }
+      ]
+    );
+
+    pdf.setDrawColor(200);
+    pdf.setLineWidth(0.3);
+    pdf.line(margin, y, pageWidth - margin, y);
+    y += 8;
+
+    drawSingleBlock("DETALLE DE CONFIGURACION DEL EQUIPO", [
+      "CONFIGURACION DE EQUIPO    :",
+      "TAREAS TECNICAS            :",
+      "MIGRACION CARPETAS         :",
+      "ACCESORIOS                 :"
+    ]);
+
+    pdf.setDrawColor(200);
+    pdf.setLineWidth(0.3);
+    pdf.line(margin, y, pageWidth - margin, y);
+    y += 8;
+
+    drawSingleBlock("CONFIGURACION DE IMPRESORAS", [
+      "NO HAY CONFIGURACION DE IMPRESORAS"
+    ]);
+
+    pdf.setDrawColor(200);
+    pdf.setLineWidth(0.3);
+    pdf.line(margin, y, pageWidth - margin, y);
+    y += 8;
+
+    drawTwoColumnBlock(
+      "DETALLE DEL EQUIPO RENOVADO",
+      [
+        { label: "Modelo", value: udf.udf_sline_3945 },
+        { label: "Marca", value: udf.udf_sline_3943 },
+        { label: "Producto", value: udf.udf_sline_3944 }
+      ],
+      "DATOS DE PRUEBA",
+      [
+        { label: "Serie Monitor", value: udf.udf_sline_3947 },
+        { label: "Marca Monitor", value: udf.udf_sline_3948 },
+        { label: "Modelo Monitor", value: udf.udf_sline_3950 }
+      ]
+    );
+
+    pdf.setDrawColor(200);
+    pdf.setLineWidth(0.3);
+    pdf.line(margin, y, pageWidth - margin, y);
+    y += 8;
+
+    
+    pdf.setFontSize(12);
+    pdf.setTextColor(0, 113, 197);
+    pdf.setFont(undefined, "bold");
+    pdf.text("POLÍTICAS DE SEGURIDAD", margin, y);
+    y += 6;
+
+    pdf.setFontSize(9);
+    pdf.setTextColor(0);
+    pdf.setFont(undefined, "normal");
+
+    const politicas = ["• Asegurar el laptop con candado o mueble bajo llave.",
+      "• Transportar en bolso adecuado.",
+      "• No dejar el equipo sin vigilancia.",
+      "• En caso de robo, contactar a Mesa de Ayuda al 22005115."];
+
+    politicas.forEach(line => {
+      pdf.text(line, margin, y);
+      y += 5;
+    });
+
+    y += 6;
+    
+
+    drawSignatures();
+
+
+    const pdfBase64 = pdf.output('datauristring');
+    const statusElement = document.getElementById('status-message');
+    statusElement.textContent = "Enviando documento...";
+    statusElement.className = "status-message";
+    statusElement.style.display = "block";
+
+    const payload = {
+      action: 'save_pdf_and_update',
+      request_id: requestId,
+      pdf_base64: pdfBase64.split(',')[1],
+      pdf_filename: `Solicitud_${requestId}_${new Date().toISOString().slice(0, 10)}.pdf`
+    };
+
+    const response = await fetch(PRODUCTION_CONFIG.BACKEND_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) throw new Error('Error en el servidor');
+    const result = await response.json();
+    if (result.status !== 'success') throw new Error(result.message);
+    showStatus("PDF guardado y ticket actualizado", "success");
+    setTimeout(() => window.close(), 2000);
+
+  } catch (error) {
+    showStatus("Error: " + error.message, "error");
+    console.error(error);
+  } finally {
+    saveBtn.textContent = 'Enviar Firma';
+    saveBtn.disabled = false;
+  }
+}
+function showStatus(message, type) {
+      const element = document.getElementById('status-message');
+      element.textContent = message;
+      element.className = `status-message ${type}`;
+      element.style.display = 'block';
+      setTimeout(() => element.style.display = 'none', 5000);
+    }
+
+    // 🔁 NUEVA FUNCIÓN: Recargar la ventana principal al cerrar esta
+    window.addEventListener('unload', () => {
+      if (window.opener && !window.opener.closed) {
+        window.opener.location.reload();
+      }
+    });
+  </script>
+</body>
+</html>
