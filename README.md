@@ -33,7 +33,6 @@ README.md
 
 - Python 3.8+
 - FastAPI
-- Dependencias en `requirements.txt`
 - Ruta de almacenamiento para PDFs (editable en el backend)
 
 ## 🔒 Seguridad
